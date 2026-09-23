@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Goat and hen unit — one acre, Kadapa</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@500;600&family=Archivo:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#141810; --ink-2:#1C2116; --ink-3:#262C1E;
+    --line:#3A4230; --line-2:#4A5340;
+    --text:#DEE2CB; --dim:#9AA385;
+    --gold:#E0A93B; --rust:#C0703A;
+    --r:4px;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:var(--ink); color:var(--text);
+    font-family:"Archivo",system-ui,-apple-system,sans-serif;
+    font-size:14px; line-height:1.55; overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  canvas{display:block}
+  #scene{position:fixed;inset:0;z-index:0}
+
+  /* ───────── top bar ───────── */
+  #bar{
+    position:fixed;z-index:20;top:14px;left:14px;right:14px;
+    display:flex;align-items:center;gap:14px;pointer-events:none;
+  }
+  #bar > *{pointer-events:auto}
+  .brand{
+    font-family:"Bitter",Georgia,serif;font-weight:600;font-size:15px;
+    letter-spacing:-.01em;white-space:nowrap;
+  }
+  .brand small{display:block;font-family:"Archivo";font-weight:400;font-size:11.5px;color:var(--dim);letter-spacing:0}
+  .spacer{flex:1}
+
+  .seg{display:flex;background:rgba(20,24,16,.92);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;backdrop-filter:blur(8px)}
+  .seg button, .btn{
+    font:inherit;font-size:12.5px;padding:7px 13px;
+    color:var(--dim);background:transparent;border:0;cursor:pointer;white-space:nowrap;
+  }
+  .seg button + button{border-left:1px solid var(--line)}
+  .seg button:hover,.btn:hover{color:var(--text);background:var(--ink-3)}
+  .seg button[aria-pressed="true"]{color:var(--ink);background:var(--gold);font-weight:600}
+  .btn{
+    background:rgba(20,24,16,.92);border:1px solid var(--line);
+    border-radius:var(--r);backdrop-filter:blur(8px);
+  }
+  .btn[aria-expanded="true"]{color:var(--ink);background:var(--gold);border-color:var(--gold);font-weight:600}
+  button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  /* ───────── bottom: day pills ───────── */
+  #days{
+    position:fixed;z-index:20;bottom:16px;left:50%;transform:translateX(-50%);
+    display:flex;align-items:center;gap:8px;
+    background:rgba(20,24,16,.92);border:1px solid var(--line);
+    border-radius:var(--r);padding:7px 10px;backdrop-filter:blur(8px);
+  }
+  #days .lbl{font-size:12px;color:var(--dim);padding-right:2px}
+  #days button{
+    font:inherit;font-size:12.5px;width:30px;height:26px;
+    color:var(--dim);background:var(--ink-2);border:1px solid var(--line);
+    border-radius:3px;cursor:pointer;
+  }
+  #days button:hover{color:var(--text)}
+  #days button[aria-pressed="true"]{color:var(--ink);background:var(--gold);border-color:var(--gold);font-weight:600}
+  #days .out{font-size:12px;color:var(--dim);padding-left:6px;border-left:1px solid var(--line);margin-left:4px}
+  #days .out b{color:var(--gold);font-weight:600}
+
+  /* ───────── tooltip ───────── */
+  #tip{
+    position:fixed;z-index:40;pointer-events:none;opacity:0;
+    transform:translate(-50%,-100%);
+    background:rgba(20,24,16,.96);border:1px solid var(--line-2);
+    border-radius:var(--r);padding:8px 11px;max-width:270px;
+    transition:opacity .11s ease;
+    box-shadow:0 8px 24px rgba(0,0,0,.5);
+  }
+  #tip.on{opacity:1}
+  #tip .t{font-family:"Bitter",Georgia,serif;font-weight:600;font-size:13.5px;line-height:1.25}
+  #tip .s{font-size:12px;color:var(--dim);margin-top:2px;font-variant-numeric:tabular-nums}
+  #tip .c{font-size:11.5px;color:var(--gold);margin-top:5px}
+
+  /* ───────── detail drawer ───────── */
+  #drawer{
+    position:fixed;z-index:30;top:60px;right:14px;width:330px;
+    max-height:calc(100vh - 92px);display:none;flex-direction:column;
+    background:rgba(20,24,16,.96);border:1px solid var(--line);
+    border-radius:var(--r);backdrop-filter:blur(10px);
+    box-shadow:0 12px 40px rgba(0,0,0,.45);
+  }
+  #drawer.on{display:flex}
+  #drawer header{
+    display:flex;align-items:flex-start;gap:10px;
+    padding:14px 14px 10px;border-bottom:1px solid var(--line);
+  }
+  #drawer h2{font-family:"Bitter",Georgia,serif;font-weight:600;font-size:16px;margin:0;line-height:1.2;flex:1}
+  #drawer .eyebrow{font-size:11px;color:var(--gold);margin:0 0 2px}
+  #close{
+    font:inherit;font-size:17px;line-height:1;color:var(--dim);
+    background:transparent;border:0;cursor:pointer;padding:2px 4px;margin:-2px -4px 0 0;
+  }
+  #close:hover{color:var(--text)}
+  #body{overflow-y:auto;padding:12px 14px 16px}
+  #body::-webkit-scrollbar{width:7px}
+  #body::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px}
+  #body p{margin:0 0 9px;font-size:13px}
+  #body p:last-child{margin-bottom:0}
+  #body h3{
+    font-family:"Bitter",Georgia,serif;font-weight:500;font-size:12.5px;
+    color:var(--dim);margin:16px 0 6px;
+  }
+  #body .row{display:flex;justify-content:space-between;gap:12px;padding:4.5px 0;font-size:12.5px}
+  #body .row + .row{border-top:1px solid rgba(58,66,48,.55)}
+  #body .row i{font-style:normal;color:var(--dim);text-align:right;font-variant-numeric:tabular-nums}
+  #body .row.hi i{color:var(--gold);font-weight:600}
+  #body .row.sub span{padding-left:14px;color:var(--dim)}
+  #body .flag{
+    border-left:2px solid var(--gold);padding:1px 0 1px 10px;
+    margin:12px 0 0;font-size:12px;color:var(--dim);
+  }
+  #body .flag b{color:var(--gold);font-weight:600}
+  #body .sched{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
+  #body .sched th{text-align:left;font-weight:500;color:var(--dim);padding:4px 6px 4px 0;border-bottom:1px solid var(--line)}
+  #body .sched td{padding:4px 6px 4px 0;color:var(--dim)}
+  #body .sched tr.now td{color:var(--gold)}
+
+  /* ───────── layers popover ───────── */
+  #layers{
+    position:fixed;z-index:30;top:60px;right:14px;width:210px;display:none;
+    background:rgba(20,24,16,.96);border:1px solid var(--line);
+    border-radius:var(--r);padding:12px 14px;backdrop-filter:blur(10px);
+  }
+  #layers.on{display:block}
+  #layers h3{font-family:"Bitter",Georgia,serif;font-weight:500;font-size:12.5px;color:var(--dim);margin:0 0 8px}
+  label.chk{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--dim);cursor:pointer;padding:3px 0}
+  label.chk:hover{color:var(--text)}
+  input[type=checkbox]{accent-color:var(--gold);width:14px;height:14px;margin:0}
+
+  #hint{
+    position:fixed;z-index:20;bottom:16px;left:14px;
+    font-size:11.5px;color:var(--dim);
+  }
+  #hint b{color:var(--text);font-weight:500}
+
+  @media (max-width:860px){
+    #hint,#days .out{display:none}
+    #drawer,#layers{top:auto;bottom:62px;left:10px;right:10px;width:auto;max-height:56vh}
+    #bar{flex-wrap:wrap;gap:8px}
+    .brand small{display:none}
+  }
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div id="scene"></div>
+
+<div id="bar">
+  <div class="brand">Goats upstairs, hens below<small>One acre &middot; Kadapa &middot; ten units of 50</small></div>
+  <div class="spacer"></div>
+  <div class="seg" role="group" aria-label="View">
+    <button id="v-unit" aria-pressed="true">One unit</button>
+    <button id="v-shed" aria-pressed="false">Under the deck</button>
+    <button id="v-acre" aria-pressed="false">Whole acre</button>
+  </div>
+  <button class="btn" id="b-numbers" aria-expanded="false">Numbers</button>
+  <button class="btn" id="b-notes" aria-expanded="false">Notes</button>
+  <button class="btn" id="b-layers" aria-expanded="false">Layers</button>
+</div>
+
+<div id="days">
+  <span class="lbl">Day</span>
+  <button data-day="0" aria-pressed="true">1</button>
+  <button data-day="1" aria-pressed="false">2</button>
+  <button data-day="2" aria-pressed="false">3</button>
+  <button data-day="3" aria-pressed="false">4</button>
+  <span class="out" id="day-out"></span>
+</div>
+
+<div id="hint">Drag to orbit &middot; scroll to zoom &middot; <b>hover</b> a zone &middot; <b>click</b> for detail</div>
+
+<div id="tip" role="tooltip"></div>
+
+<aside id="drawer" role="dialog" aria-label="Zone detail">
+  <header>
+    <div style="flex:1">
+      <p class="eyebrow" id="d-eyebrow"></p>
+      <h2 id="d-title"></h2>
+    </div>
+    <button id="close" aria-label="Close">&times;</button>
+  </header>
+  <div id="body"></div>
+</aside>
+
+<div id="layers">
+  <h3>Show</h3>
+  <label class="chk"><input type="checkbox" id="t-roof" checked>Roof</label>
+  <label class="chk"><input type="checkbox" id="t-mesh" checked>Mesh walls</label>
+  <label class="chk"><input type="checkbox" id="t-goats" checked>Goats</label>
+  <label class="chk"><input type="checkbox" id="t-hens" checked>Hens</label>
+  <label class="chk"><input type="checkbox" id="t-fences" checked>Paddock fences</label>
+  <label class="chk"><input type="checkbox" id="t-enrich" checked>Enrichment</label>
+  <label class="chk"><input type="checkbox" id="t-lanes">Service lanes</label>
+  <label class="chk"><input type="checkbox" id="t-grid">Grid, 10 ft</label>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+
+/* ════════ geometry constants (feet, unit origin at NW corner) ════════
+   Pinwheel of four 51×15 paddocks around a 36×36 core.
+   Shed 30×30 on stilts, deck at 4 ft. Under it: kidding pen 240,
+   hen run 540, manure bay 120. Unit 66×66 = 4,356. Ten = one acre.
+   ═══════════════════════════════════════════════════════════════════ */
+var U=66, COLS=5, ROWS=2, ACRE_W=COLS*U, ACRE_D=ROWS*U;
+var DECK_Y=4.0, DECK_T=0.5;
+var SHED={x0:15,z0:15,x1:45,z1:45};
+var KID={z0:15,z1:23}, HEN={z0:23,z1:41}, DUNG={z0:41,z1:45};
+
+var PADDOCKS=[
+  {id:"P1",label:"Paddock 1, north",x0:0, z0:0, x1:51,z1:15,gate:48},
+  {id:"P2",label:"Paddock 2, east", x0:51,z0:0, x1:66,z1:51,gate:33},
+  {id:"P3",label:"Paddock 3, south",x0:15,z0:51,x1:66,z1:66,gate:15},
+  {id:"P4",label:"Paddock 4, west", x0:0, z0:15,x1:15,z1:66,gate:33}
+];
+var BATCHES=[{id:"A",head:17,slot:"06:00\u201308:00"},
+             {id:"B",head:17,slot:"08:15\u201310:15"},
+             {id:"C",head:16,slot:"16:30\u201318:30"}];
+
+function assignment(day){
+  var a={};
+  BATCHES.forEach(function(b,i){ a[b.id]=(day+i)%4; });
+  a.rest=(day+3)%4;
+  return a;
+}
+
+/* ════════ zone content — tooltip is one line, drawer is the detail ════════ */
+var ZONES={
+  deck:{
+    eyebrow:"Upper floor",
+    title:"Goat deck",
+    tipStat:"900 sq ft \u00b7 18 sq ft per goat",
+    html:
+      '<p>The whole shed sits on stilts, deck 4 ft (1.2 m) above the ground. That is inside the 1&ndash;1.5 m range that lets you get a cart underneath to clear dung.</p>'+
+      '<div class="row"><span>Footprint</span><i>30 &times; 30 ft</i></div>'+
+      '<div class="row sub"><span>Slatted section</span><i>660 sq ft</i></div>'+
+      '<div class="row sub"><span>Solid decking, over the kids</span><i>240 sq ft</i></div>'+
+      '<div class="row hi"><span>Total, holds all 50</span><i>900 sq ft</i></div>'+
+      '<h3>Why slats</h3>'+
+      '<p>Dung and urine drop straight through. No bedding to change, the deck stays dry, parasite and disease pressure falls, and air moves up through the floor &mdash; which is the part that matters in Kadapa heat.</p>'+
+      '<div class="row"><span>Gap between slats</span><i>1.4&ndash;1.6 cm</i></div>'+
+      '<p class="flag"><b>Flag.</b> That gap is not a rough guide. Wider and legs go through; narrower and the dung stops falling. The model draws slats at a 6-inch pitch so you can see through &mdash; the real ones are far finer.</p>',
+    cue:"Click the bay below it for the hen run"
+  },
+  hens:{
+    eyebrow:"Ground floor",
+    title:"Hen run",
+    tipStat:"540 sq ft \u00b7 mesh-enclosed",
+    html:
+      '<p>Goats never set foot down here. They reach the deck by the ramp off the handling yard, so there is no shared walkway where hens could get into goat feed or water.</p>'+
+      '<div class="row"><span>Floor area</span><i>540 sq ft</i></div>'+
+      '<div class="row"><span>Deep litter, per bird</span><i>2&ndash;4 sq ft</i></div>'+
+      '<div class="row"><span>Capacity on paper</span><i>135&ndash;270 birds</i></div>'+
+      '<div class="row hi"><span>What to actually start with</span><i>50&ndash;75</i></div>'+
+      '<h3>Why they earn the space</h3>'+
+      '<p>Hens scratch through spilled feed and fallen litter, break up droppings and eat fly larvae. That is exactly why the area under a raised shed is the standard place to put them.</p>'+
+      '<p class="flag"><b>Flag.</b> Deep litter under a slatted deck makes ammonia, and ammonia rises into the goats. Turn the litter weekly and keep the east and south sides open. If you cannot stay on top of it, run this bay as plain manure collection and skip the hens.</p>'+
+      '<p class="flag"><b>Flag.</b> Hens are a second species with their own diseases, feed chain, buyers and daily routine. Get one clean kidding season out of the goats first.</p>',
+    cue:"Toggle the roof off in Layers to see in"
+  },
+  kids:{
+    eyebrow:"Ground floor",
+    title:"Kidding pen",
+    tipStat:"240 sq ft \u00b7 solid floor, no slats above",
+    html:
+      '<p>Kids&rsquo; legs slip through slats, so newborns cannot go on the slatted deck at all. This bay solves it twice over: solid sloped floor underfoot, and the deck directly above it is solid decking rather than slats, so nothing drops onto them.</p>'+
+      '<div class="row"><span>Floor area</span><i>240 sq ft</i></div>'+
+      '<div class="row"><span>Deck above</span><i>solid, 30 &times; 8 ft</i></div>'+
+      '<div class="row"><span>Separation</span><i>mesh on three sides</i></div>'+
+      '<h3>What it costs you</h3>'+
+      '<p>240 sq ft of deck that you scrape by hand instead of letting gravity do the work. That is the price of having a slat-free zone, and it is worth paying.</p>'+
+      '<p class="flag"><b>Flag.</b> This bay was missing from the first version of the plan. Without it the elevated design quietly fails every time a doe kids.</p>',
+    cue:null
+  },
+  dung:{
+    eyebrow:"Ground floor",
+    title:"Manure bay",
+    tipStat:"120 sq ft \u00b7 cart access",
+    html:
+      '<p>Sits at the south end so it opens straight onto the handling alley &mdash; you can back a cart in without crossing the hen run.</p>'+
+      '<div class="row"><span>Floor area</span><i>120 sq ft</i></div>'+
+      '<div class="row"><span>Headroom under the deck</span><i>4 ft</i></div>'+
+      '<h3>Why it matters</h3>'+
+      '<p>Goat manure collects in one place instead of being trampled across a dirt floor, which means it is sellable as fertiliser rather than something you pay to remove. That is a genuine line of income the ground-floor design cannot give you.</p>',
+    cue:null
+  },
+  yard:{
+    eyebrow:"Circulation",
+    title:"Handling yard",
+    tipStat:"396 sq ft \u00b7 gates to all four paddocks",
+    html:
+      '<p>An L-shaped alley wrapping the east and south faces of the shed. Every paddock gate opens onto it, so you move a batch out without it ever crossing another batch&rsquo;s ground.</p>'+
+      '<div class="row"><span>East alley</span><i>6 &times; 36 ft</i></div>'+
+      '<div class="row"><span>South alley</span><i>30 &times; 6 ft</i></div>'+
+      '<div class="row hi"><span>Total</span><i>396 sq ft</i></div>'+
+      '<h3>The ramp</h3>'+
+      '<div class="row"><span>Run</span><i>12 ft</i></div>'+
+      '<div class="row"><span>Rise</span><i>4 ft</i></div>'+
+      '<div class="row"><span>Slope</span><i>about 18&deg;</i></div>'+
+      '<p>Cleated so hooves grip. This is the only route between ground and deck, which is what keeps the two species apart.</p>',
+    cue:null
+  }
+};
+
+function paddockHTML(pid, day){
+  var a=assignment(day);
+  var idx=PADDOCKS.findIndex(function(p){return p.id===pid;});
+  var user=null;
+  BATCHES.forEach(function(b){ if(a[b.id]===idx) user=b; });
+  var resting = a.rest===idx;
+  var status = resting
+    ? '<div class="row hi"><span>Today</span><i>resting</i></div>'
+    : '<div class="row hi"><span>Today</span><i>Batch '+user.id+', '+user.head+' head</i></div>'+
+      '<div class="row"><span>Slot</span><i>'+user.slot+'</i></div>';
+
+  var rows="";
+  for(var d=0;d<4;d++){
+    var aa=assignment(d), who="resting";
+    BATCHES.forEach(function(b){ if(aa[b.id]===idx) who="Batch "+b.id; });
+    rows+='<tr class="'+(d===day?"now":"")+'"><td>Day '+(d+1)+'</td><td>'+who+'</td></tr>';
+  }
+
+  return '<p>One of four arms pinwheeling around the shed. Sized for a single batch of 17 rather than all 50 at once &mdash; that is the whole reason a 50-goat unit fits in 66 ft square.</p>'+
+    '<div class="row"><span>Dimensions</span><i>51 &times; 15 ft</i></div>'+
+    '<div class="row"><span>Area</span><i>765 sq ft</i></div>'+
+    '<div class="row"><span>Per goat</span><i>45 sq ft</i></div>'+
+    status+
+    '<h3>This paddock, four-day cycle</h3>'+
+    '<table class="sched"><tbody>'+rows+'</tbody></table>'+
+    '<p style="margin-top:9px">Three batches, four paddocks &mdash; so one always rests. Vegetation recovers and parasite load drops.</p>'+
+    '<h3>Enrichment inside</h3>'+
+    '<p>Two raised platforms, a cleated ramp, three stumps and a browse shrub for shade. Goats browse and climb rather than graze flat ground, so this is a real behavioural need, not decoration.</p>'+
+    '<p class="flag"><b>Flag.</b> Two hours in 765 sq ft is still well short of the roughly 3 km a day a free-ranging goat covers. Watch for pacing, bullying at the feed line and poor hoof wear in the first months.</p>';
+}
+
+var NUMBERS =
+  '<h3>One unit</h3>'+
+  '<div class="row"><span>Paddocks, 4 &times; 765</span><i>3,060 sq ft</i></div>'+
+  '<div class="row"><span>Handling yard</span><i>396 sq ft</i></div>'+
+  '<div class="row"><span>Shed footprint</span><i>900 sq ft</i></div>'+
+  '<div class="row hi"><span>Land, 66 &times; 66 ft</span><i>4,356 sq ft</i></div>'+
+  '<div class="row"><span>Second storey underneath</span><i>+900 sq ft</i></div>'+
+  '<div class="row hi"><span>Usable floor, both levels</span><i>5,256 sq ft</i></div>'+
+  '<p style="margin-top:10px">Going up buys hygiene and a second enterprise, not land. The shed is only 21% of the unit; the paddocks are unchanged.</p>'+
+  '<h3>Whole acre</h3>'+
+  '<div class="row"><span>Units, 5 across &times; 2 deep</span><i>10</i></div>'+
+  '<div class="row"><span>Plot</span><i>330 &times; 132 ft</i></div>'+
+  '<div class="row hi"><span>Total</span><i>43,560 sq ft \u00b7 1.000 acre</i></div>'+
+  '<div class="row"><span>Goats</span><i>500</i></div>'+
+  '<h3>What the deck costs, 900 sq ft</h3>'+
+  '<div class="row"><span>Ground-floor shed</span><i>~&#8377;2.25 L</i></div>'+
+  '<div class="row"><span>Wooden slatted, elevated</span><i>~&#8377;4.5&ndash;5 L</i></div>'+
+  '<div class="row"><span>PVC slatted, elevated</span><i>~&#8377;5.85 L</i></div>'+
+  '<div class="row hi"><span>PVC slat mats, frame self-built</span><i>~&#8377;1.03 L</i></div>'+
+  '<p class="flag"><b>Flag.</b> At contractor rates the deck alone swallows the entire &#8377;5&ndash;7 lakh you budgeted for stock, fodder, labour and vet care combined. Unit one realistically means farm timber or bamboo slats on a frame you build.</p>';
+
+var NOTES =
+  '<p>Four things in this plan that could bite you. None of them are reasons not to build it.</p>'+
+  '<h3>1. Ammonia through the floor</h3>'+
+  '<p class="flag">Deep litter directly under a slatted deck produces ammonia, and it rises into the goats&rsquo; airspace. Turn the litter weekly, keep two sides open. If litter management slips, drop the hens and run that bay as plain manure collection &mdash; the hygiene gain from elevating is the real prize.</p>'+
+  '<h3>2. Exercise is structured, not natural</h3>'+
+  '<p class="flag">Two hours in a 765 sq ft paddock is not the same as the roughly 3 km a day a free-ranging goat covers. The plan is defensible, not equivalent. Watch for pacing, feed-line bullying and hoof problems early.</p>'+
+  '<h3>3. The acre has no slack</h3>'+
+  '<p class="flag">Ten units fill it exactly &mdash; no service lanes, no feed store. Turn on the lane overlay in Layers: a 4 ft grid costs about 3,100 sq ft and drops you to nine units, so 450 goats rather than 500. Decide this before you fence anything.</p>'+
+  '<h3>4. Two businesses, one roof</h3>'+
+  '<p class="flag">Hens have their own diseases, feed chain, buyers and daily routine. You already turned poultry down on cost; this is a much smaller version, but it is still a second business. One clean kidding season first.</p>'+
+  '<h3>Where the numbers come from</h3>'+
+  '<p>18 sq ft of shed and 45 sq ft of paddock per goat; slats raised 1&ndash;1.5 m with 1.4&ndash;1.6 cm gaps; deep litter at 2&ndash;4 sq ft per bird. Batches of 16&ndash;17 stay together permanently, because goats hold a pecking order for years and reshuffling them causes fighting and weight loss.</p>';
+
+/* ════════ three.js scene ════════ */
+var COL={earth:0x4A2F20,grass:0x8FA04B,rest:0xA9BE63,hot:0xE0A93B,yard:0xB49877,
+         roof:0xB9BEC2,timber:0x4A3526,deck:0xC8A879,fence:0x3A2B1F,stone:0x8C8577,
+         goat:0xE6E1D2,hen:0xC0703A,kid:0x8FA66E,dung:0x6B5A43,mesh:0xCBD2C2,lane:0x2E3524};
+
+var renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+document.getElementById("scene").appendChild(renderer.domElement);
+
+var scene=new THREE.Scene();
+scene.background=new THREE.Color(0x141810);
+scene.fog=new THREE.Fog(0x141810,320,860);
+var camera=new THREE.PerspectiveCamera(42,innerWidth/innerHeight,0.5,2400);
+
+scene.add(new THREE.HemisphereLight(0xBFD0E0,0x3A2B1C,0.68));
+var sun=new THREE.DirectionalLight(0xFFE7BE,1.0);
+sun.position.set(-170,240,155); sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);
+var S=270;
+sun.shadow.camera.left=-S; sun.shadow.camera.right=S;
+sun.shadow.camera.top=S;   sun.shadow.camera.bottom=-S;
+sun.shadow.camera.near=20; sun.shadow.camera.far=720; sun.shadow.bias=-0.0008;
+scene.add(sun);
+var fill=new THREE.DirectionalLight(0x8FA6C8,0.2);
+fill.position.set(200,130,-190); scene.add(fill);
+
+var boxGeo=new THREE.BoxGeometry(1,1,1),
+    cylGeo=new THREE.CylinderGeometry(0.5,0.5,1,10),
+    sphGeo=new THREE.SphereGeometry(0.5,10,8);
+
+function mat(c,o){o=o||{};return new THREE.MeshLambertMaterial({
+  color:c,transparent:!!o.transparent,
+  opacity:o.opacity===undefined?1:o.opacity,
+  side:o.side||THREE.FrontSide,
+  depthWrite:o.depthWrite===undefined?true:o.depthWrite});}
+
+var M={earth:mat(COL.earth),grass:mat(COL.grass),rest:mat(COL.rest),hot:mat(COL.hot),
+  yard:mat(COL.yard),roof:mat(COL.roof),timber:mat(COL.timber),deck:mat(COL.deck),
+  fence:mat(COL.fence),stone:mat(COL.stone),goat:mat(COL.goat),hen:mat(COL.hen),
+  henHead:mat(0xE8DCC8),kid:mat(COL.kid),dung:mat(COL.dung),lane:mat(COL.lane),
+  mesh:mat(COL.mesh,{transparent:true,opacity:0.2,side:THREE.DoubleSide,depthWrite:false})};
+
+function box(w,h,d,m,x,y,z,p,sh){
+  var o=new THREE.Mesh(boxGeo,m);
+  o.scale.set(w,h,d); o.position.set(x,y,z);
+  if(sh){o.castShadow=true;o.receiveShadow=true;}
+  (p||scene).add(o); return o;
+}
+function slab(x0,z0,x1,z1,h,m,y,p){
+  return box(x1-x0,h,z1-z0,m,(x0+x1)/2,y+h/2,(z0+z1)/2,p,false);
+}
+function fenceLine(g,x0,z0,x1,z1,gap){
+  var dx=x1-x0,dz=z1-z0,len=Math.hypot(dx,dz),ux=dx/len,uz=dz/len;
+  var n=Math.max(2,Math.round(len/9));
+  for(var i=0;i<=n;i++){
+    var t=i/n*len;
+    if(gap!==undefined&&Math.abs(t-gap)<3.5) continue;
+    var p=new THREE.Mesh(cylGeo,M.fence);
+    p.scale.set(0.5,4.2,0.5); p.position.set(x0+ux*t,2.1,z0+uz*t); g.add(p);
+  }
+  [1.4,3.3].forEach(function(h){
+    var segs=(gap===undefined)?[[0,len]]:[[0,gap-3.5],[gap+3.5,len]];
+    segs.forEach(function(s){
+      var l=s[1]-s[0]; if(l<=0.6) return;
+      var r=box(1,1,1,M.fence,0,0,0,g,false);
+      r.scale.set(Math.abs(ux)*l+0.3,0.28,Math.abs(uz)*l+0.3);
+      r.position.set(x0+ux*(s[0]+l/2),h,z0+uz*(s[0]+l/2));
+    });
+  });
+}
+
+/* pickable hit volumes */
+var pickables=[];
+function hit(unit,key,x0,z0,x1,z1,y0,y1,parent){
+  var m=new THREE.MeshBasicMaterial({color:0xE0A93B,transparent:true,opacity:0,depthWrite:false});
+  var o=new THREE.Mesh(boxGeo,m);
+  o.scale.set(x1-x0,y1-y0,z1-z0);
+  o.position.set((x0+x1)/2,(y0+y1)/2,(z0+z1)/2);
+  o.userData={unit:unit,key:key,m:m};
+  o.renderOrder=5;
+  parent.add(o); pickables.push(o); return o;
+}
+
+var units=[];
+function buildUnit(index,col,row){
+  var g=new THREE.Group(); g.position.set(col*U,0,row*U);
+  var L={};
+  ["pads","ground","structure","roof","meshwalls","fences","enrich","hits"].forEach(function(k){
+    L[k]=new THREE.Group(); g.add(L[k]);
+  });
+
+  slab(0,0,U,U,0.6,M.earth,-0.6,L.pads).receiveShadow=true;
+  var padMeshes={};
+  PADDOCKS.forEach(function(p){
+    var m=slab(p.x0+0.4,p.z0+0.4,p.x1-0.4,p.z1-0.4,0.5,M.grass,0,L.pads);
+    m.receiveShadow=true; padMeshes[p.id]=m;
+  });
+  slab(45,15,51,51,0.45,M.yard,0,L.pads).receiveShadow=true;
+  slab(15,45,45,51,0.45,M.yard,0,L.pads).receiveShadow=true;
+
+  slab(SHED.x0,KID.z0,SHED.x1,KID.z1,0.5,M.kid,0,L.ground).receiveShadow=true;
+  slab(SHED.x0,HEN.z0,SHED.x1,HEN.z1,0.4,M.dung,0,L.ground).receiveShadow=true;
+  slab(SHED.x0,DUNG.z0,SHED.x1,DUNG.z1,0.3,M.dung,0,L.ground).receiveShadow=true;
+  [26,30,34,38].forEach(function(z){ box(26,0.35,0.35,M.timber,30,1.5,z,L.ground,false); });
+  [[17.5,25],[17.5,28],[17.5,31]].forEach(function(q){
+    box(3,1.6,2.2,M.timber,q[0],0.9,q[1],L.ground,true);
+  });
+
+  var st=L.structure;
+  [16.2,30,43.8].forEach(function(px){
+    [16.2,23,30,37,43.8].forEach(function(pz){
+      box(1.1,DECK_Y+9.5,1.1,M.timber,px,(DECK_Y+9.5)/2,pz,st,true);
+    });
+  });
+  box(30,DECK_T,KID.z1-KID.z0,M.deck,30,DECK_Y-DECK_T/2,(KID.z0+KID.z1)/2,st,true);
+
+  var pitch=0.5, n=Math.floor((DUNG.z1-HEN.z0)/pitch);
+  var slats=new THREE.InstancedMesh(boxGeo,M.deck,n); slats.castShadow=true;
+  var mx=new THREE.Matrix4(), q0=new THREE.Quaternion();
+  for(var s2=0;s2<n;s2++){
+    mx.compose(new THREE.Vector3(30,DECK_Y-DECK_T/2,HEN.z0+0.25+s2*pitch),
+               q0,new THREE.Vector3(30,DECK_T,0.3));
+    slats.setMatrixAt(s2,mx);
+  }
+  st.add(slats);
+
+  box(30.8,0.7,0.8,M.timber,30,DECK_Y-0.35,SHED.z0,st,true);
+  box(30.8,0.7,0.8,M.timber,30,DECK_Y-0.35,SHED.z1,st,true);
+  box(0.8,0.7,30.8,M.timber,SHED.x0,DECK_Y-0.35,30,st,true);
+  box(0.8,0.7,30.8,M.timber,SHED.x1,DECK_Y-0.35,30,st,true);
+  box(30,6,0.7,M.timber,30,DECK_Y+3,SHED.z0+0.4,st,true);
+  box(0.7,6,30,M.timber,SHED.x0+0.4,DECK_Y+3,30,st,true);
+  box(30,1.6,0.5,M.timber,30,DECK_Y+0.8,SHED.z1-0.3,st,true);
+  box(0.5,1.6,30,M.timber,SHED.x1-0.3,DECK_Y+0.8,30,st,true);
+  box(30,3.2,0.4,M.timber,30,DECK_Y+1.6,KID.z1,st,true);
+  box(24,1.3,1.8,M.timber,30,DECK_Y+0.9,SHED.z1-2.4,st,true);
+  box(1.8,1.3,20,M.timber,SHED.x1-2.4,DECK_Y+0.9,32,st,true);
+
+  var ramp=box(4,0.45,12.6,M.timber,48,DECK_Y/2+0.2,36,st,true);
+  ramp.rotation.x=Math.atan2(DECK_Y,12);
+  for(var c2=0;c2<7;c2++){
+    var t2=c2/6;
+    box(4,0.28,0.4,M.timber,48,0.35+DECK_Y*t2+0.25,42-12*t2,st,false);
+  }
+  [[21,28],[39,36]].forEach(function(p){
+    box(6,1.5,4.5,M.stone,p[0],DECK_Y+0.75,p[1],st,true);
+  });
+  var tank=new THREE.Mesh(cylGeo,M.stone);
+  tank.scale.set(6,5,6); tank.position.set(48,2.5,19); tank.castShadow=true; st.add(tank);
+
+  var rA=box(37,0.7,19,M.roof,30,DECK_Y+10.4,21.5,L.roof,true); rA.rotation.x=-0.21;
+  var rB=box(37,0.7,19,M.roof,30,DECK_Y+10.4,38.5,L.roof,true); rB.rotation.x=0.21;
+  box(37,0.9,1.3,M.roof,30,DECK_Y+12.5,30,L.roof,true);
+
+  function panel(x0,z0,x1,z1){
+    box(Math.max(Math.abs(x1-x0),0.25),DECK_Y-0.5,Math.max(Math.abs(z1-z0),0.25),
+        M.mesh,(x0+x1)/2,(DECK_Y-0.5)/2,(z0+z1)/2,L.meshwalls,false);
+  }
+  panel(SHED.x0,HEN.z0,SHED.x0,DUNG.z1); panel(SHED.x1,HEN.z0,SHED.x1,DUNG.z1);
+  panel(SHED.x0,HEN.z0,SHED.x1,HEN.z0);  panel(SHED.x0,DUNG.z0,SHED.x1,DUNG.z0);
+  panel(SHED.x0,DUNG.z1,SHED.x1,DUNG.z1);
+  panel(SHED.x0,KID.z0,SHED.x0,KID.z1);  panel(SHED.x1,KID.z0,SHED.x1,KID.z1);
+  panel(SHED.x0,KID.z0,SHED.x1,KID.z0);
+
+  var fg=L.fences;
+  fenceLine(fg,0,0,U,0); fenceLine(fg,U,0,U,U);
+  fenceLine(fg,U,U,0,U); fenceLine(fg,0,U,0,0);
+  fenceLine(fg,0,15,51,15,48); fenceLine(fg,51,0,51,51,33);
+  fenceLine(fg,15,51,66,51,15); fenceLine(fg,15,15,15,66,33);
+
+  PADDOCKS.forEach(function(p){
+    var cx=(p.x0+p.x1)/2, cz=(p.z0+p.z1)/2;
+    var along=(p.x1-p.x0)>(p.z1-p.z0);
+    function at(t,o){ return along?[cx+t,cz+o]:[cx+o,cz+t]; }
+    [[-14,-3.4],[13,3.2]].forEach(function(qq){
+      var c=at(qq[0],qq[1]);
+      box(7,2.6,6,M.stone,c[0],1.3,c[1],L.enrich,true);
+      box(7.6,0.4,6.6,M.timber,c[0],2.75,c[1],L.enrich,true);
+    });
+    var rc=at(-8.5,-3.4);
+    var rp=box(9,0.5,4.2,M.timber,rc[0],1.35,rc[1],L.enrich,true);
+    rp.rotation[along?"z":"x"]=along?0.30:-0.30;
+    [[-2,2.9],[5,-3.1],[19,-2.4]].forEach(function(qq){
+      var c=at(qq[0],qq[1]);
+      var s3=new THREE.Mesh(cylGeo,M.timber);
+      var h=1.9+((Math.abs(qq[0])*7)%5)*0.28;
+      s3.scale.set(2.5,h,2.5); s3.position.set(c[0],h/2,c[1]);
+      s3.castShadow=true; L.enrich.add(s3);
+    });
+    var bc=at(along?21:20,along?-1.5:1.5);
+    var tr=new THREE.Mesh(cylGeo,M.timber);
+    tr.scale.set(1.1,5.5,1.1); tr.position.set(bc[0],2.75,bc[1]); L.enrich.add(tr);
+    var cr=new THREE.Mesh(sphGeo,M.rest);
+    cr.scale.set(9,5.5,9); cr.position.set(bc[0],6.6,bc[1]);
+    cr.castShadow=true; L.enrich.add(cr);
+  });
+
+  var goatB=new THREE.InstancedMesh(boxGeo,M.goat,50),
+      goatH=new THREE.InstancedMesh(sphGeo,M.goat,50),
+      henB =new THREE.InstancedMesh(boxGeo,M.hen,30),
+      henH =new THREE.InstancedMesh(sphGeo,M.henHead,30);
+  [goatB,goatH,henB,henH].forEach(function(m){
+    m.instanceMatrix.setUsage(THREE.DynamicDrawUsage); g.add(m);
+  });
+  goatB.castShadow=true;
+
+  /* hit volumes — the interface */
+  PADDOCKS.forEach(function(p){
+    hit(index,p.id,p.x0+0.5,p.z0+0.5,p.x1-0.5,p.z1-0.5,0,7,L.hits);
+  });
+  hit(index,"yard",45,15,51,51,0,4,L.hits);
+  hit(index,"yard",15,45,45,51,0,4,L.hits);
+  hit(index,"deck",SHED.x0,SHED.z0,SHED.x1,SHED.z1,DECK_Y,DECK_Y+7,L.hits);
+  hit(index,"kids",SHED.x0,KID.z0,SHED.x1,KID.z1,0,DECK_Y-0.6,L.hits);
+  hit(index,"hens",SHED.x0,HEN.z0,SHED.x1,HEN.z1,0,DECK_Y-0.6,L.hits);
+  hit(index,"dung",SHED.x0,DUNG.z0,SHED.x1,DUNG.z1,0,DECK_Y-0.6,L.hits);
+
+  scene.add(g);
+  var rec={index:index,col:col,row:row,group:g,L:L,padMeshes:padMeshes,
+           goatB:goatB,goatH:goatH,henB:henB,henH:henH};
+  units.push(rec); return rec;
+}
+for(var r=0;r<ROWS;r++) for(var c=0;c<COLS;c++) buildUnit(r*COLS+c,c,r);
+
+var ground=new THREE.Mesh(new THREE.PlaneGeometry(1800,1800),mat(0x241C13));
+ground.rotation.x=-Math.PI/2; ground.position.y=-1.4; ground.receiveShadow=true;
+scene.add(ground);
+
+var boundary=new THREE.Group();
+[[0,0,ACRE_W,0],[ACRE_W,0,ACRE_W,ACRE_D],[ACRE_W,ACRE_D,0,ACRE_D],[0,ACRE_D,0,0]]
+.forEach(function(q){
+  box(Math.abs(q[2]-q[0])+1.4,0.5,Math.abs(q[3]-q[1])+1.4,M.hot,
+      (q[0]+q[2])/2,0.3,(q[1]+q[3])/2,boundary,false);
+});
+boundary.visible=false; scene.add(boundary);
+
+var lanes=new THREE.Group();
+(function(){
+  var W=4;
+  [[-W,-W,ACRE_W+W,0],[-W,ACRE_D,ACRE_W+W,ACRE_D+W],
+   [-W,0,0,ACRE_D],[ACRE_W,0,ACRE_W+W,ACRE_D]].forEach(function(q){
+    slab(q[0],q[1],q[2],q[3],0.35,M.lane,0.1,lanes);
+  });
+  slab(-W,U-W/2,ACRE_W+W,U+W/2,0.35,M.lane,0.1,lanes);
+  for(var i=1;i<COLS;i++) slab(i*U-W/2,-W,i*U+W/2,ACRE_D+W,0.35,M.lane,0.1,lanes);
+  lanes.visible=false;
+})();
+scene.add(lanes);
+
+var grid=new THREE.GridHelper(660,66,0x3A4230,0x2A3120);
+grid.position.y=-0.2; grid.visible=false; scene.add(grid);
+
+/* ════════ camera ════════ */
+var target=new THREE.Vector3(), sph={r:140,theta:-0.62,phi:0.80};
+var want={r:140,theta:-0.62,phi:0.80,t:new THREE.Vector3()};
+function applyCamera(){
+  camera.position.set(
+    target.x+sph.r*Math.sin(sph.phi)*Math.sin(sph.theta),
+    target.y+sph.r*Math.cos(sph.phi),
+    target.z+sph.r*Math.sin(sph.phi)*Math.cos(sph.theta));
+  camera.lookAt(target);
+}
+var drag=null, el=renderer.domElement, moved=0;
+el.style.touchAction="none";
+el.addEventListener("pointerdown",function(e){
+  el.setPointerCapture(e.pointerId);
+  drag={x:e.clientX,y:e.clientY,pan:e.shiftKey||e.button===2}; moved=0;
+});
+el.addEventListener("pointermove",function(e){
+  mouse.x=e.clientX; mouse.y=e.clientY;
+  if(!drag){ needPick=true; return; }
+  var dx=e.clientX-drag.x, dy=e.clientY-drag.y;
+  moved+=Math.abs(dx)+Math.abs(dy);
+  drag.x=e.clientX; drag.y=e.clientY;
+  hideTip();
+  if(drag.pan){
+    var k=want.r*0.0016;
+    want.t.addScaledVector(new THREE.Vector3(Math.cos(want.theta),0,-Math.sin(want.theta)),-dx*k)
+          .addScaledVector(new THREE.Vector3(Math.sin(want.theta),0,Math.cos(want.theta)),-dy*k);
+  } else {
+    want.theta-=dx*0.005;
+    want.phi=Math.max(0.06,Math.min(1.52,want.phi-dy*0.004));
+  }
+});
+["pointerup","pointercancel"].forEach(function(t){
+  el.addEventListener(t,function(e){
+    if(drag && moved<5) onClick(e);
+    drag=null;
+  });
+});
+el.addEventListener("contextmenu",function(e){e.preventDefault();});
+el.addEventListener("wheel",function(e){
+  e.preventDefault(); hideTip();
+  want.r=Math.max(16,Math.min(1000,want.r*(1+Math.sign(e.deltaY)*0.09)));
+},{passive:false});
+el.addEventListener("pointerleave",hideTip);
+
+/* ════════ state ════════ */
+var state={view:"unit",unit:0,day:0,open:null};
+
+function frameView(){
+  var u=units[state.unit], cx=u.col*U+U/2, cz=u.row*U+U/2;
+  if(state.view==="acre"){ want.t.set(ACRE_W/2,0,ACRE_D/2); want.r=470; want.phi=0.92; want.theta=-0.62; }
+  else if(state.view==="unit"){ want.t.set(cx,2,cz); want.r=128; want.phi=0.78; want.theta=-0.62; }
+  else { want.t.set(cx,3.2,cz); want.r=58; want.phi=1.30; want.theta=-0.95; }
+}
+
+function on(id){ return document.getElementById(id).checked; }
+
+function refresh(){
+  var a=assignment(state.day), shedView=state.view==="shed";
+  units.forEach(function(u){
+    var focus=(state.view!=="acre")&&(u.index===state.unit);
+    var other=(state.view!=="acre")&&!focus;
+    u.L.roof.visible=on("t-roof")&&!shedView;
+    u.L.meshwalls.visible=on("t-mesh")&&!other;
+    u.L.fences.visible=on("t-fences")&&!other;
+    u.L.enrich.visible=on("t-enrich");
+    u.L.hits.visible=!other;
+
+    PADDOCKS.forEach(function(p,i){
+      u.padMeshes[p.id].material=(i===a.rest)?M.rest:M.grass;
+    });
+    u.padMeshes[PADDOCKS[a.A].id].material=M.hot;
+
+    var outPad=PADDOCKS[a.A], showG=on("t-goats"), showH=on("t-hens");
+    var mx=new THREE.Matrix4(), q=new THREE.Quaternion(), ax=new THREE.Vector3(0,1,0);
+    for(var i=0;i<50;i++){
+      var gx,gz,gy;
+      if(i<17){
+        gx=outPad.x0+3+(((i*37)%11)/10)*(outPad.x1-outPad.x0-6);
+        gz=outPad.z0+3+(((i*53)%13)/12)*(outPad.z1-outPad.z0-6); gy=1.5;
+      } else {
+        var j=i-17;
+        gx=SHED.x0+2.5+(((j*29)%12)/11)*25;
+        gz=HEN.z0+1.5+(((j*41)%15)/14)*20; gy=DECK_Y+1.5;
+      }
+      var rot=(((i*29)%10)/10)*Math.PI*2; q.setFromAxisAngle(ax,rot);
+      var k=showG?1:0.0001;
+      mx.compose(new THREE.Vector3(gx,gy,gz),q,new THREE.Vector3(2.7*k,1.8*k,1.3*k));
+      u.goatB.setMatrixAt(i,mx);
+      mx.compose(new THREE.Vector3(gx+Math.sin(rot)*1.6,gy+0.75,gz+Math.cos(rot)*1.6),
+                 q,new THREE.Vector3(1.2*k,1.2*k,1.2*k));
+      u.goatH.setMatrixAt(i,mx);
+    }
+    u.goatB.instanceMatrix.needsUpdate=true; u.goatH.instanceMatrix.needsUpdate=true;
+    for(var h=0;h<30;h++){
+      var hx=SHED.x0+2+(((h*23)%14)/13)*26, hz=HEN.z0+1.5+(((h*31)%16)/15)*15;
+      var hr=(((h*17)%10)/10)*Math.PI*2; q.setFromAxisAngle(ax,hr);
+      var kh=showH?1:0.0001;
+      mx.compose(new THREE.Vector3(hx,1.0,hz),q,new THREE.Vector3(1.1*kh,0.85*kh,0.7*kh));
+      u.henB.setMatrixAt(h,mx);
+      mx.compose(new THREE.Vector3(hx+Math.sin(hr)*0.65,1.5,hz+Math.cos(hr)*0.65),
+                 q,new THREE.Vector3(0.5*kh,0.5*kh,0.5*kh));
+      u.henH.setMatrixAt(h,mx);
+    }
+    u.henB.instanceMatrix.needsUpdate=true; u.henH.instanceMatrix.needsUpdate=true;
+  });
+
+  boundary.visible=(state.view==="acre");
+  lanes.visible=on("t-lanes")&&state.view==="acre";
+  grid.visible=on("t-grid");
+
+  var out=PADDOCKS[a.A].id;
+  document.getElementById("day-out").innerHTML=
+    "Batch A in <b>"+out+"</b> \u00b7 "+PADDOCKS[a.rest].id+" resting";
+
+  if(state.open && state.open.indexOf("P")===0) openZone(state.open);
+}
+
+/* ════════ picking ════════ */
+var ray=new THREE.Raycaster(), ndc=new THREE.Vector2();
+var mouse={x:0,y:0}, needPick=false, hovered=null;
+var tip=document.getElementById("tip");
+
+function tipFor(key){
+  if(key.indexOf("P")===0){
+    var a=assignment(state.day);
+    var idx=PADDOCKS.findIndex(function(p){return p.id===key;});
+    var who=null; BATCHES.forEach(function(b){ if(a[b.id]===idx) who=b; });
+    var p=PADDOCKS[idx];
+    return {t:p.label, s:"765 sq ft \u00b7 51 \u00d7 15 ft",
+            c:(a.rest===idx?"Resting today":"Batch "+who.id+" today, "+who.slot)};
+  }
+  var z=ZONES[key];
+  return {t:z.title,s:z.tipStat,c:z.cue};
+}
+
+function setHover(o){
+  if(hovered===o) return;
+  if(hovered) hovered.userData.m.opacity=0;
+  hovered=o;
+  if(hovered){
+    hovered.userData.m.opacity=0.16;
+    var d=tipFor(hovered.userData.key);
+    tip.innerHTML='<div class="t">'+d.t+'</div><div class="s">'+d.s+'</div>'+
+                  (d.c?'<div class="c">'+d.c+'</div>':'');
+    tip.classList.add("on");
+    el.style.cursor="pointer";
+  } else {
+    tip.classList.remove("on");
+    el.style.cursor="grab";
+  }
+}
+function hideTip(){ setHover(null); }
+
+function pick(){
+  needPick=false;
+  ndc.x=(mouse.x/innerWidth)*2-1;
+  ndc.y=-(mouse.y/innerHeight)*2+1;
+  ray.setFromCamera(ndc,camera);
+  var hits=ray.intersectObjects(pickables,false);
+  setHover(hits.length?hits[0].object:null);
+  if(hovered){
+    tip.style.left=mouse.x+"px";
+    tip.style.top=(mouse.y-16)+"px";
+  }
+}
+
+function onClick(){
+  if(!hovered){ closePanels(); return; }
+  var u=hovered.userData;
+  if(u.unit!==state.unit){
+    state.unit=u.unit;
+    if(state.view!=="acre") frameView();
+  }
+  openZone(u.key);
+}
+
+/* ════════ drawer ════════ */
+var drawer=document.getElementById("drawer"),
+    dBody=document.getElementById("body"),
+    dTitle=document.getElementById("d-title"),
+    dEye=document.getElementById("d-eyebrow"),
+    layersEl=document.getElementById("layers");
+
+function closePanels(){
+  drawer.classList.remove("on");
+  layersEl.classList.remove("on");
+  state.open=null;
+  ["b-numbers","b-notes","b-layers"].forEach(function(id){
+    document.getElementById(id).setAttribute("aria-expanded","false");
+  });
+}
+function showDrawer(eyebrow,title,html,key){
+  layersEl.classList.remove("on");
+  document.getElementById("b-layers").setAttribute("aria-expanded","false");
+  dEye.textContent=eyebrow; dTitle.textContent=title; dBody.innerHTML=html;
+  dBody.scrollTop=0; drawer.classList.add("on"); state.open=key||null;
+}
+function openZone(key){
+  if(key.indexOf("P")===0){
+    var p=PADDOCKS[PADDOCKS.findIndex(function(x){return x.id===key;})];
+    showDrawer("Exercise paddock",p.label,paddockHTML(key,state.day),key);
+  } else {
+    var z=ZONES[key];
+    showDrawer(z.eyebrow,z.title,z.html,key);
+  }
+}
+document.getElementById("close").addEventListener("click",closePanels);
+
+document.getElementById("b-numbers").addEventListener("click",function(){
+  var openNow=this.getAttribute("aria-expanded")==="true";
+  closePanels();
+  if(!openNow){ showDrawer("Site","The numbers",NUMBERS); this.setAttribute("aria-expanded","true"); }
+});
+document.getElementById("b-notes").addEventListener("click",function(){
+  var openNow=this.getAttribute("aria-expanded")==="true";
+  closePanels();
+  if(!openNow){ showDrawer("Before you build","Things that could bite you",NOTES); this.setAttribute("aria-expanded","true"); }
+});
+document.getElementById("b-layers").addEventListener("click",function(){
+  var openNow=this.getAttribute("aria-expanded")==="true";
+  closePanels();
+  if(!openNow){ layersEl.classList.add("on"); this.setAttribute("aria-expanded","true"); }
+});
+
+/* ════════ controls ════════ */
+var views={unit:"v-unit",shed:"v-shed",acre:"v-acre"};
+Object.keys(views).forEach(function(v){
+  document.getElementById(views[v]).addEventListener("click",function(){
+    state.view=v;
+    Object.keys(views).forEach(function(k){
+      document.getElementById(views[k]).setAttribute("aria-pressed",k===v);
+    });
+    frameView(); refresh();
+  });
+});
+Array.prototype.forEach.call(document.querySelectorAll("#days button"),function(b){
+  b.addEventListener("click",function(){
+    state.day=parseInt(b.dataset.day,10);
+    Array.prototype.forEach.call(document.querySelectorAll("#days button"),function(x){
+      x.setAttribute("aria-pressed",x===b);
+    });
+    refresh();
+  });
+});
+["t-roof","t-mesh","t-goats","t-hens","t-fences","t-enrich","t-lanes","t-grid"]
+.forEach(function(id){ document.getElementById(id).addEventListener("change",refresh); });
+
+addEventListener("keydown",function(e){
+  if(e.key==="Escape") closePanels();
+  if(e.key==="r"||e.key==="R") frameView();
+});
+addEventListener("resize",function(){
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth,innerHeight);
+});
+
+/* ════════ loop ════════ */
+frameView();
+target.copy(want.t); sph.r=want.r; sph.phi=want.phi; sph.theta=want.theta;
+el.style.cursor="grab";
+refresh();
+
+(function tick(){
+  requestAnimationFrame(tick);
+  sph.r+=(want.r-sph.r)*0.09;
+  sph.theta+=(want.theta-sph.theta)*0.09;
+  sph.phi+=(want.phi-sph.phi)*0.09;
+  target.lerp(want.t,0.09);
+  applyCamera();
+  if(needPick) pick();
+  renderer.render(scene,camera);
+})();
+
+})();
+</script>
+</body>
+</html>
